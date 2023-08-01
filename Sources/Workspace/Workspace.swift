@@ -1051,7 +1051,7 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests)
+        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, mirrors: self.mirrors)
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
 
         // Abort if we're unable to load the pinsStore or have any diagnostics.
@@ -2582,7 +2582,7 @@ extension Workspace {
 
         // FIXME: this should not block
         let rootManifests = try temp_await { self.loadRootManifests(packages: root.packages, observabilityScope: observabilityScope, completion: $0) }
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
+        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct, mirrors: self.mirrors)
 
         // Load the pins store or abort now.
         guard let pinsStore = observabilityScope.trap({ try self.pinsStore.load() }), !observabilityScope.errorsReported else {
@@ -2697,7 +2697,7 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct)
+        let graphRoot = PackageGraphRoot(input: root, manifests: rootManifests, explicitProduct: explicitProduct, mirrors: self.mirrors)
         let currentManifests = try self.loadDependencyManifests(root: graphRoot, observabilityScope: observabilityScope)
         guard !observabilityScope.errorsReported else {
             return currentManifests

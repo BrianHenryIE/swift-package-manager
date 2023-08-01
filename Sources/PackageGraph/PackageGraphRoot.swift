@@ -47,14 +47,39 @@ public struct PackageGraphRoot {
     }
 
     /// The top level dependencies.
-    public let dependencies: [PackageDependency]
+    private let _dependencies: [PackageDependency]
+
+    public var dependencies: [PackageDependency] {
+        guard let mirrors = mirrors else {
+            return self._dependencies
+        }
+
+        return self._dependencies.map {
+            switch $0 {
+            case .fileSystem: return $0
+            case .registry: return $0
+            case .sourceControl(let settings):
+                let mappedLocation: PackageDependency.SourceControl.Location
+                switch settings.location {
+                case .local:
+                    mappedLocation = settings.location
+                case .remote(let url):
+                    let effectiveLocation = mirrors.effective(for: url.absoluteString)
+                    mappedLocation = .remote(SourceControlURL(effectiveLocation))
+                }
+                return .sourceControl(identity: settings.identity, nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly, location: mappedLocation, requirement: settings.requirement, productFilter: settings.productFilter)
+            }
+        }
+    }
+
+    private let mirrors: DependencyMirrors?
 
     /// Create a package graph root.
     /// Note this quietly skip inputs for which manifests are not found. this could be because the manifest  failed to load or for some other reasons
     // FIXME: This API behavior wrt to non-found manifests is fragile, but required by IDEs
     // it may lead to incorrect assumption in downstream code which may expect an error if a manifest was not found
     // we should refactor this API to more clearly return errors for inputs that do not have a corresponding manifest
-    public init(input: PackageGraphRootInput, manifests: [AbsolutePath: Manifest], explicitProduct: String? = nil) {
+    public init(input: PackageGraphRootInput, manifests: [AbsolutePath: Manifest], explicitProduct: String? = nil, mirrors: DependencyMirrors? = nil) {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
             if let manifest = manifests[inputPath]  {
                 let packagePath = manifest.path.parentDirectory
@@ -77,7 +102,8 @@ public struct PackageGraphRoot {
             }
         }
 
-        self.dependencies = adjustedDependencies
+        self._dependencies = adjustedDependencies
+        self.mirrors = mirrors
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
